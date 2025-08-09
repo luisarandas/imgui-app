@@ -1,3 +1,22 @@
+# Custom
+
+*.ini
+
+.sconsign.dblite
+
+build/
+
+scons-imgui-example
+./application
+application
+application/
+
+
+windows/libs/glfw/*
+windows/libs/glfw/
+windows/libs/glfw
+
+
 # Prerequisites
 *.d
 
@@ -39,3 +58,13 @@
 
 # debug information files
 *.dwo
+
+# Local GLFW build/cache
+libs/glfw/
+libs/imgui/
+libs/imgui_backends/
+libs/stb/
+macos/build/
+macos/application/
+
+.DS_Store

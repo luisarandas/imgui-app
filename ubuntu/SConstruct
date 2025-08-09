@@ -1,0 +1,214 @@
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+
+# luis arandas 26-02-2023
+# Compiling executable to "application/" folder
+
+# > imgui (local)
+# > imgui_backends (local)
+# > imgui_sequencer (local)
+# > GLFW (system, get w+ pkg-config)
+
+
+import os
+import subprocess
+import platform
+import shutil
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Global variables
+
+
+system_name = platform.system()
+system_architecture = platform.machine()
+
+executable_name = 'scons-imgui-app'
+
+
+if system_name == 'Windows':
+    result = subprocess.run(['where', 'g++.exe'], stdout=subprocess.PIPE)
+    compiler_path = result.stdout.strip().decode()
+else:
+    result = subprocess.run(['which', 'g++'], stdout=subprocess.PIPE)
+    compiler_path = result.stdout.strip().decode()
+
+print("Compiler is at: ", compiler_path)
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Setup scons environments
+
+
+env = Environment()
+print("Scons environment -> ", env)
+
+cxx = result.stdout.strip().decode() # 'g++', 'clang++'
+
+current_folder = os.getcwd()
+root_folder = os.path.abspath(os.path.join(current_folder, os.pardir))
+
+src_folder = os.path.join(current_folder, 'src')
+libs_folder = os.path.join(root_folder, 'libs')
+build_folder = os.path.join(current_folder, 'build')
+data_folder = os.path.join(root_folder, 'data')
+dist_folder = os.path.join(current_folder, 'application')
+
+stb_folder = os.path.join(libs_folder, 'stb')
+imgui_folder = os.path.join(libs_folder, 'imgui')
+imgui_backends_folder = os.path.join(libs_folder, 'imgui_backends')
+
+glfw_folder = os.path.join(libs_folder, 'glfw', 'include')
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Global functions for build and compile
+
+
+def create_shell_script(file_path):
+    with open(file_path, 'w') as f:
+        f.write("#!/bin/bash\n\n")
+        f.write("cp -r data $HOME/\n")
+        f.write(
+            f"echo 'Installation of {executable_name} is successful. You can now run this app from anywhere on the computer." 
+            f"Copied the data folder with fonts and images to $HOME/.'\n"
+        )
+
+
+def get_pkg_config_flags(package):
+    cflags = subprocess.check_output(["pkg-config", "--cflags", package]).decode().strip()
+    libs = subprocess.check_output(["pkg-config", "--libs", package]).decode().strip()
+    return cflags + ' ' + libs
+
+
+
+def get_shell_output(command):
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    return process.communicate()[0].decode('utf-8').strip()
+
+
+
+def post_build_action(target, source, env):
+
+    # def generate_simple_distribution():
+    # def generate_documentation():
+
+    # Move the main application executable to "application/" folder
+
+    try:
+        shutil.move(executable_name, dist_folder)
+        print(f"File '{executable_name}' moved to '{dist_folder}' successfully.")
+    except FileNotFoundError:
+        print(f"File '{executable_name}' not found.")
+    except PermissionError:
+        print(f"Permission denied. Failed to move file '{executable_name}'.")
+
+    # Copy files for installation from "data/" folder
+
+    try:
+        shutil.copytree(data_folder, os.path.join(dist_folder, 'data'))
+        print("Folder 'data/' copied to the destination directory successfully.")
+    except FileNotFoundError:
+        print("Folder 'data/' not found.")
+    except PermissionError:
+        print("Permission denied. Failed to copy folder 'data/'.")
+
+    # Create installation file and save it there
+    create_shell_script(os.path.join(dist_folder, 'install.sh'))
+        
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Arrange current folder and clean previous builds
+
+
+if os.path.exists(dist_folder):
+    os.system('rm -rf ' + dist_folder)
+
+if os.path.exists(build_folder):
+    os.system('rm -rf ' + build_folder)
+
+for folder in [build_folder, dist_folder]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Include core flags
+
+
+if system_name == 'Linux':
+    libs = env.ParseConfig('pkg-config --static --libs glfw3')
+    env.Append(LIBS=libs, CXXFLAGS=env.ParseConfig('pkg-config --cflags glfw3'))
+    env.Append(LIBS='-lGL')
+
+elif system_name == 'Darwin':
+    libs = ['-framework', 'OpenGL', '-framework', 'Cocoa', '-framework', 'IOKit', '-framework', 'CoreVideo', '-L/usr/local/lib', '-L/opt/local/lib', '-L/opt/homebrew/lib', '-lglfw']
+    env.Append(LIBS=libs, CXXFLAGS=['-I/usr/local/include', '-I/opt/local/include', '-I/opt/homebrew/include'])
+    
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Create objects from sources to separate folders
+
+
+cpp_sources = [
+    os.path.join(src_folder, 'main.cpp'),
+    os.path.join(imgui_folder, 'imgui.cpp'),
+    os.path.join(imgui_folder, 'imgui_demo.cpp'),
+    os.path.join(imgui_folder, 'imgui_draw.cpp'),
+    os.path.join(imgui_folder, 'imgui_tables.cpp'),
+    os.path.join(imgui_folder, 'imgui_widgets.cpp'),
+    os.path.join(imgui_backends_folder, 'imgui_impl_glfw.cpp'),
+    os.path.join(imgui_backends_folder, 'imgui_impl_opengl3.cpp'),
+]
+
+object_arr = []
+
+for cpp_source in cpp_sources:
+    object_file = os.path.join(build_folder, os.path.splitext(os.path.basename(cpp_source))[0] + '.o')
+    object_arr.append(object_file)
+    env.Object(
+        target = object_file,
+        source = cpp_source,
+        CXX = cxx,
+        CXXFLAGS = ['-std=c++17', '-I' + imgui_folder, '-I' + imgui_backends_folder, '-I' + build_folder, '-g', '-Wall', '-Wformat']
+    )
+
+
+
+
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
+# Run compiler command
+
+env.SetDefault(build_type='Release')
+
+
+if system_name == 'Linux':
+    del env['LIBS'][-2] # Without this has unhashable error on linux (somehow)
+    env.Append(CPPPATH = stb_folder) # add to CCFLAGS if not working
+    application = env.Program(target = executable_name, source = object_arr, LIBS = env['LIBS'])
+    env.AddPostAction(application, post_build_action)
+    
+
+
+elif system_name == 'Darwin':
+    env.Append(CPPPATH = stb_folder)
+    env.Program(target = executable_name, source = object_arr, LIBS = env['LIBS'])
+

@@ -1,0 +1,143 @@
+
+
+# 29-03-2024
+# need to fix glfw download and local index from libs/glfw/build/
+
+import os
+import platform
+import subprocess
+from urllib.request import urlretrieve
+import zipfile
+import shutil
+
+current_folder = os.getcwd()
+root_folder = os.path.abspath(os.path.join(current_folder, os.pardir))
+src_folder = os.path.join(current_folder, 'src')
+libs_folder = os.path.join(root_folder, 'libs')
+imgui_folder = os.path.join(libs_folder, 'imgui')
+imgui_backends_folder = os.path.join(libs_folder, 'imgui_backends')
+glfw_folder = os.path.join(libs_folder, 'glfw')
+glfw_include_folder = os.path.join(glfw_folder, 'include')
+glfw_lib_folder = os.path.join(glfw_folder, 'lib')
+stb_folder = os.path.join(libs_folder, 'stb')
+build_folder = os.path.join(current_folder, 'build')
+application_folder = os.path.join(current_folder, 'application')  # Define the application folder
+data_folder = os.path.join(root_folder, 'data')
+glfw_version = '3.2.1'
+glfw_zip_url = f'https://github.com/glfw/glfw/archive/refs/tags/{glfw_version}.zip'
+glfw_zip_path = os.path.join(glfw_folder, 'src', f'{glfw_version}.zip')
+glfw_extract_path = os.path.join(glfw_folder, 'src', 'glfw3')
+
+os.makedirs(build_folder, exist_ok=True)
+os.makedirs(application_folder, exist_ok=True)  
+
+def download_and_build_glfw():
+    if not os.path.exists(glfw_include_folder) or not os.path.exists(glfw_lib_folder):
+        print(f"GLFW {glfw_version} not found locally. Downloading and building...")
+
+        if not os.path.exists(glfw_zip_path):
+            print(f"Downloading GLFW from {glfw_zip_url} to {glfw_zip_path}")
+            urlretrieve(glfw_zip_url, glfw_zip_path)
+
+        with zipfile.ZipFile(glfw_zip_path, 'r') as zip_ref:
+            zip_ref.extractall(glfw_extract_path)
+
+        glfw_source_path = os.path.join(glfw_extract_path, f'glfw-{glfw_version}')
+        glfw_build_path = os.path.join(glfw_extract_path, 'build')
+
+        os.makedirs(glfw_build_path, exist_ok=True)
+
+        subprocess.run(['cmake', '-S', glfw_source_path, '-B', glfw_build_path, '-G', 'MinGW Makefiles'])
+        subprocess.run(['cmake', '--build', glfw_build_path, '--config', 'Release'])
+
+        os.makedirs(glfw_include_folder, exist_ok=True)
+        os.makedirs(glfw_lib_folder, exist_ok=True)
+
+        glfw_include_src = os.path.join(glfw_source_path, 'include')
+        glfw_lib_src = os.path.join(glfw_build_path, 'src', 'Release', 'glfw3.lib')
+
+        shutil.copytree(glfw_include_src, glfw_include_folder, dirs_exist_ok=True)
+        shutil.copy(glfw_lib_src, glfw_lib_folder)
+
+        print(f"GLFW {glfw_version} has been downloaded and built locally.")
+
+def verify_glfw_build():
+    include_files = []
+    lib_files = []
+
+    search_paths = [
+        glfw_include_folder,
+        glfw_lib_folder,
+        os.path.join(glfw_folder, 'build', 'include'),
+        os.path.join(glfw_folder, 'build', 'lib')
+    ]
+
+    for path in search_paths:
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                relative_path = os.path.relpath(os.path.join(root, file), path)
+                if path == glfw_include_folder:
+                    include_files.append(relative_path)
+                else:
+                    lib_files.append(relative_path)
+
+    if 'GLFW/glfw3.h' not in include_files:
+        print("Error: glfw3.h not found in GLFW include directory.")
+        return False
+    if 'glfw3.lib' not in lib_files:
+        print("Error: glfw3.lib not found in GLFW lib directory.")
+        return False
+    print("GLFW build verified.")
+    return True
+
+download_and_build_glfw()
+
+if not verify_glfw_build():
+    print("GLFW build verification failed. Exiting.")
+    exit(1)
+
+if platform.system() == 'Windows':
+    result = subprocess.run(['where', 'g++.exe'], stdout=subprocess.PIPE)
+    compiler_path = result.stdout.strip().decode()
+else:
+    result = subprocess.run(['which', 'g++'], stdout=subprocess.PIPE)
+    compiler_path = result.stdout.strip().decode()
+
+print("Compiler is at: ", compiler_path)
+
+env = Environment(tools=['mingw'])
+env.Append(CCFLAGS=['-std=c++17', '-m64'])  # Enable C++17 standard and target 64-bit architecture
+env.Append(LINKFLAGS=['-static', '-static-libgcc', '-static-libstdc++'])  # Static linking flags for MinGW-w64
+
+env.Append(LIBPATH=[glfw_lib_folder])
+env.Append(CPPPATH=[src_folder, imgui_folder, imgui_backends_folder, glfw_include_folder, stb_folder])
+
+env.Append(LIBS=['glfw3', 'opengl32', 'gdi32', 'user32'])
+
+cpp_sources = [
+    os.path.join(imgui_folder, 'imgui.cpp'),
+    os.path.join(imgui_folder, 'imgui_demo.cpp'),
+    os.path.join(imgui_folder, 'imgui_draw.cpp'),
+    os.path.join(imgui_folder, 'imgui_tables.cpp'),
+    os.path.join(imgui_folder, 'imgui_widgets.cpp'),
+    os.path.join(imgui_backends_folder, 'imgui_impl_glfw.cpp'),
+    os.path.join(imgui_backends_folder, 'imgui_impl_opengl3.cpp'),
+    os.path.join(src_folder, 'main.cpp'),
+]
+
+object_files = [env.Object(target=os.path.join(build_folder, os.path.basename(src) + '.o'), source=src) for src in cpp_sources]
+
+executable = env.Program(target=os.path.join(application_folder, "scons-imgui-app"), source=object_files)
+
+def post_build_copy_data(target, source, env):
+    dest = os.path.join(application_folder, 'data')
+    try:
+        if os.path.exists(dest):
+            shutil.rmtree(dest)
+        shutil.copytree(data_folder, dest)
+        print("Folder 'data/' copied to the application directory successfully.")
+    except Exception as e:
+        print(f"Failed to copy data folder: {e}")
+
+env.AddPostAction(executable, post_build_copy_data)
+
