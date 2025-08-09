@@ -2,7 +2,7 @@
 Cross platform desktop ImGUI application in both CMake and SCons. Tests on 1) Ubuntu 22.04, 2) Windows 11, 3) macOS 12.2. Includes libraries and backends.
 
 <!-- ![capture](ubuntu/capture20240228.png) -->
-<img src="ubuntu/screenshot20240530.png" alt="capture" width="70%" />
+<img src="data/screenshot20240530.png" alt="capture" width="70%" />
 
 ##### Commands
 ```
