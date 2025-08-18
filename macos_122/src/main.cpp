@@ -32,24 +32,51 @@
 void setup_fonts(ImGuiIO& io);
 void setup_logo(GLFWwindow* window);
 
+
 static std::filesystem::path getDataPath() {
+    // Priority 1: Bundle Resources (macOS) - CHECK FIRST!
+    // tested macos.Monterey 12.2
+    #if defined(__APPLE__)
+        uint32_t bufsize = 0;
+        _NSGetExecutablePath(nullptr, &bufsize);
+        std::string execPath(bufsize, '\0');
+        if (_NSGetExecutablePath(execPath.data(), &bufsize) == 0) {
+            std::filesystem::path execP(execPath.c_str());
+            auto resources = execP.parent_path().parent_path() / "Resources" / "data";
+            if (std::filesystem::exists(resources) && std::filesystem::is_directory(resources)) {
+                return resources;  // ← BUNDLE FIRST (production)
+            }
+        }
+    #endif
+    
+    // Priority 2: Development data folder (current working directory)
     std::filesystem::path cwdData = std::filesystem::current_path() / "data";
     if (std::filesystem::exists(cwdData) && std::filesystem::is_directory(cwdData)) {
-        return cwdData;
+        return cwdData;  // ← DEVELOPMENT FALLBACK
     }
-#if defined(__APPLE__)
-    uint32_t bufsize = 0;
-    _NSGetExecutablePath(nullptr, &bufsize);
-    std::string execPath(bufsize, '\0');
-    if (_NSGetExecutablePath(execPath.data(), &bufsize) == 0) {
-        std::filesystem::path execP(execPath.c_str());
-        auto resources = execP.parent_path().parent_path() / "Resources" / "data";
-        if (std::filesystem::exists(resources) && std::filesystem::is_directory(resources)) {
-            return resources;
+    
+    // Priority 3: Executable-relative data folder (cross-platform)
+    std::filesystem::path execDir = std::filesystem::current_path();
+    auto relativeData = execDir / "data";
+    if (std::filesystem::exists(relativeData) && std::filesystem::is_directory(relativeData)) {
+        return relativeData;
+    }
+    
+    // Priority 4: System-wide paths (Linux/Unix)
+    std::vector<std::filesystem::path> systemPaths = {
+        "/usr/local/share/cmake_imgui_app_macos/data",
+        "/opt/local/share/cmake_imgui_app_macos/data",
+        "/usr/share/cmake_imgui_app_macos/data"
+    };
+    
+    for (const auto& path : systemPaths) {
+        if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
+            return path;
         }
     }
-#endif
-    return cwdData;
+    
+    // Last resort: return current working directory + data
+    return std::filesystem::current_path() / "data";
 }
 
 void glfw_error_callback(int error, const char* description) {
@@ -143,14 +170,13 @@ void ShowImageSubwindow(const char* title, const std::string& directory, int wid
     float fixed_height = 150.0f;
     float fixed_width = fixed_height * (static_cast<float>(img_width) / img_height);
 
-    ImVec2 p_min = ImGui::GetCursorScreenPos();
-    ImVec2 p_max = ImVec2(p_min.x + fixed_width, p_min.y + fixed_height);
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    draw_list->AddRectFilled(p_min, p_max, IM_COL32(0, 0, 0, 255));
-
+    // Draw the image first
     ImGui::Image((void*)(intptr_t)texture, ImVec2(fixed_width, fixed_height));
+    
+    // Draw white border on top of the image
     ImVec2 image_p_min = ImGui::GetItemRectMin();
     ImVec2 image_p_max = ImGui::GetItemRectMax();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
     draw_list->AddRect(image_p_min, image_p_max, IM_COL32(255, 255, 255, 255), 0.0f, 0, 2.0f);
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10);

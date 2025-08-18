@@ -1,30 +1,26 @@
-# Custom
-
-*.ini
-
-.sconsign.dblite
-
+# Build artifacts
 build/
-
-scons-imgui-example
-./application
-application
 application/
+*.app/
+macos_122/build/
+macos_122/application/
 
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
 
-windows/libs/glfw/*
-windows/libs/glfw/
-windows/libs/glfw
-
-
-# Prerequisites
-*.d
+# SCons build files
+.sconsign.dblite
+scons-imgui-example
 
 # Compiled Object files
-*.slo
-*.lo
 *.o
 *.obj
+*.slo
+*.lo
 
 # Precompiled Headers
 *.gch
@@ -54,17 +50,51 @@ windows/libs/glfw
 # Executables
 *.exe
 *.out
-*.app
 
-# debug information files
+# Debug information files
 *.dwo
 
-# Local GLFW build/cache
+# Local library builds (gitignored)
 libs/glfw/
 libs/imgui/
 libs/imgui_backends/
 libs/stb/
-macos/build/
-macos/application/
 
+# Old macos folder (renamed to macos_122)
+macos/
+
+# Temporary files
+*.zip
+*.tar.gz
+*.dmg
+*.tmp
+*.log
+*.ini
+
+# macOS specific
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swp
+*~
+
+# Dependencies (if downloaded locally)
+deps/
+external/
+
+# Debug files
+*.dSYM/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Backup files
+*.bak
+*.backup
+
