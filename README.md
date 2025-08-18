@@ -4,10 +4,13 @@ Self-contained desktop ImGUI application in both CMake and SCons. Tests on 1) Ma
 <img src="data/screenshot20240530.png" alt="capture" width="70%" />
 
 ### Tests for Development  
-`./build_project_macos122.sh`
-`./build_app_macos122.sh`  
-MacOS Monterey 12.2
-
+`./build_project_macos122.sh`  
+`./build_app_macos122.sh`   
+<u>MacOS Monterey 12.2 </u>  
+MacBook Pro (Retina, 15-inch, Mid 2015)  
+Processor: 2,2 GHz Quad-Core Intel Core i7  
+Memory: 16 GB 1600 MHz DDR3   
+Graphics: Intel Iris Pro 1536 MB   
 
 ##### To revise
 ```
